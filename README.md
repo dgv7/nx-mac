@@ -4,6 +4,8 @@
 
 [한국어](./README.md) · [English](./README.en.md)
 
+![바람의나라 일월마을 on macOS](docs/screenshots/baram-ingame.png)
+
 ---
 
 Sikarugir Wine wrapper(CX 24.0.7) 기반. 넥슨 게임 전용 **자동 빌더 + AppleScript URL router + SwiftUI splash**로 실행 체인을 구성한다. 직접 Wine을 튜닝하는 대신, 공식 무료 백엔드 위에 **검증된 설정 한 벌**을 자동 적용하는 데 집중했다.
@@ -105,6 +107,14 @@ MS 저작권 폰트 — 의도적 미번들. 대체 폰트(Source Han, Nanum)로
 
 `~/Applications/Sikarugir/NX Launcher.app` 더블클릭. Splash가 즉시 뜨고 단계별 상태 텍스트가 흐르면서 Plug 로그인 창 출현 시 자동 소멸한다.
 
+> **"게임 실행에 실패했습니다" 팝업은 무시하세요**
+>
+> Plug에서 `게임시작`을 누르면 아래 팝업이 잠깐 뜨지만, **실제로는 게임이 정상 실행된다**. `확인`을 클릭해 닫으면 OTP 입력 창 또는 게임 창이 뒤이어 올라온다.
+>
+> ![plug false-error popup](docs/screenshots/plug-false-error.png)
+>
+> Plug이 Mac Wine 환경에서 게임 프로세스의 exit code를 오해석해 띄우는 false alarm. 자동 dismiss는 의도적으로 구현하지 않았다 — OTP나 공지처럼 실제로 읽어야 할 팝업까지 같이 닫힐 위험이 있어서.
+
 ## Design notes
 
 ### 50s → 7s: cold-start 병목의 정체
@@ -153,7 +163,7 @@ macOS LaunchServices는 `nexonplug://` / `ngm://` 같은 URL scheme을 오직 `.
 의식적으로 내린 선택과 받아들인 한계:
 
 - **gulim.ttc 자가 배치**: MS 저작권. 대체 폰트로는 UI 렌더링이 어색해짐.
-- **OTP "실행 실패" 팝업**: 실제 오류가 아닌 Nexon 2FA 트리거. 사용자가 확인 클릭. 자동 dismiss는 중요 공지 오탐 위험으로 포기.
+- **"실행 실패" 팝업** ([Install 단계 참조](#4-실행)) — Plug의 false alarm. `확인` 클릭 후 게임 정상 진행. 자동 dismiss는 OTP/공지 오탐 위험으로 포기.
 - **NGS 룰 변경 리스크**: 2026-04 기준 검증. Nexon이 anti-cheat 규칙을 강화하면 예고 없이 차단될 수 있음.
 - **Sikarugir Creator Refresh 시 설정 소실**: 빌더가 idempotent 설계이므로 재실행으로 복구.
 - **x86_64 Wine 엔진**: Apple Game Porting Toolkit 기반 ARM 네이티브 경로는 Chromium-in-Plug 호환성이 CX24보다 약함. Plan B에서 재평가.

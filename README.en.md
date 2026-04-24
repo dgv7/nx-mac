@@ -4,6 +4,8 @@
 
 [한국어](./README.md) · [English](./README.en.md)
 
+![바람의나라 Kingdom of the Winds running on macOS](docs/screenshots/baram-ingame.png)
+
 ---
 
 Built on the Sikarugir Wine wrapper (CX 24.0.7). A **builder, AppleScript URL router, and SwiftUI splash** form the launch chain for Nexon's Windows titles. The project doesn't tune Wine itself — it trusts the free upstream stack and focuses on **one verified preset per game**, applied automatically.
@@ -105,6 +107,14 @@ The font is Microsoft proprietary; intentionally not bundled. Substitutes (Sourc
 
 Double-click `~/Applications/Sikarugir/NX Launcher.app`. The splash appears immediately and auto-dismisses when the Plug login window is detected.
 
+> **Ignore the "게임 실행에 실패했습니다" popup**
+>
+> After clicking `게임시작` in Plug, the popup below briefly appears — **but the game actually launches normally**. Click `확인` to dismiss it; the OTP prompt or game window comes up right behind.
+>
+> ![plug false-error popup](docs/screenshots/plug-false-error.png)
+>
+> A false alarm from Plug misreading the game process's exit code under Wine. Auto-dismiss is deliberately not implemented — OTP and real service notices use the same dialog style, and silencing all of them risks hiding something the user actually needs to read.
+
 ## Design notes
 
 ### 50 s → 7 s: where the cold-start really went
@@ -153,7 +163,7 @@ Predictions for other Nexon titles (untested):
 Conscious choices and accepted limitations:
 
 - **User-supplied gulim.ttc** — MS proprietary font; substitutes render the UI off-metric.
-- **"실행 실패" (launch failed) popup during OTP** — a Nexon 2FA trigger, not a real error. User must click through; auto-dismiss risks hiding real notices.
+- **"실행 실패" (launch failed) popup** ([see Install step 4](#4-launch)) — a Plug false alarm. Click `확인` and the game proceeds. Auto-dismiss is avoided because OTP and real notices share the same dialog style.
 - **NGS rule changes, server-side** — current behavior is valid as of April 2026. Nexon can update anti-cheat rules without notice.
 - **Sikarugir Creator "Refresh" wipes configuration** — the builder is idempotent; re-run to restore.
 - **x86_64 Wine engine, not ARM-native** — Apple Game Porting Toolkit would be the ARM path but Chromium-in-Plug compatibility is weaker than CX 24 today. Re-evaluated under Plan B.
