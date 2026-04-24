@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 대용량/라이선스 이슈 파일
+downloads/           # NexonPlug installer (공식 CDN에서 받음)
+fonts-backup/        # MS gulim.ttc 등 저작권 폰트
+*.ttc
+*.ttf
+
+# 빌드/임시 산출물
+logs/
+tmp/
+*.log
+*.bak
+backup-router-*/
+
+# Claude Code 메모리/프로젝트 상태
+.claude/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# 빌드 산출 (배포 시 별도 릴리스)
+dist/
+build/
+*.dmg
