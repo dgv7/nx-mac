@@ -70,6 +70,9 @@ nx-mac/
 ### OTP "실행 실패" 팝업 (의도된 UX)
 Nexon의 2FA 트리거 패턴. 사용자가 직접 확인 눌러야 함. 자동 dismiss는 중요 팝업 오탐 위험으로 포기.
 
+### Cold-start 50초 UX (완화됨 2026-04-24)
+SwiftUI splash 창이 `NX Launcher.app/Contents/Resources/NX Splash.app`로 번들되어 클릭 즉시 표시. 단계별 텍스트(Wine 준비 → 프로세스 정리 → Plug 시작 → 로그인 창 로딩)와 초 카운터가 대기감을 줄여줌. `CGWindowListCopyWindowInfo`로 Plug 창 출현을 감지해 자동 소멸. Cancel(ESC) 버튼으로 Wine 트리 강제 종료 가능.
+
 ### Sikarugir Creator Refresh 시 설정 리셋 가능성
 Creator GUI로 wrapper를 Refresh 하면 libinotify 심링크 + `Nexon Launcher` 서비스 설정이 날아갈 수 있음. 이 경우 `build-baram-app.sh` 재실행으로 복구 (idempotent 설계).
 
@@ -77,9 +80,9 @@ Creator GUI로 wrapper를 Refresh 하면 libinotify 심링크 + `Nexon Launcher`
 
 ### 즉시 (이번 세션)
 - [x] 프로젝트 폴더 rename: `~/projects/baram-mac` → `~/projects/nx-mac`
-- [x] 현 환경에 설치된 `Baram-URL-Router.app`을 새 `NX Launcher.app`으로 교체 (2026-04-24 완료, ad-hoc 재서명 + LSF 재등록)
-- [ ] git init + 초기 commit
-- [ ] GitHub public repo `nx-mac` 생성 + push
+- [x] 현 환경에 설치된 `Baram-URL-Router.app`을 새 `NX Launcher.app`으로 교체 (2026-04-24 완료)
+- [x] git init + 초기 commit + GitHub public repo push (`dgv7/nx-mac`)
+- [x] Splash UI 추가 (SwiftUI borderless + 단계별 텍스트 + Plug 창 자동 감지, 2026-04-24)
 
 ### 단기 (오픈소스 공개)
 - DMG 빌드 스크립트 (선택, 코드 서명 없이 ad-hoc)

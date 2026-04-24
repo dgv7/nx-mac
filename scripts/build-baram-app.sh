@@ -201,10 +201,26 @@ step9_build_router_app() {
     -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:1 string ngm" \
     "$plist" 2>/dev/null || warn "URLTypes 이미 존재"
 
+  # osacompile output may lack CFBundleIdentifier — Add first, fall back to Set
   /usr/libexec/PlistBuddy \
-    -c "Set :CFBundleIdentifier $BUNDLE_ID" \
-    -c "Set :CFBundleName '$ROUTER_APP_NAME'" \
-    "$plist" 2>/dev/null || true
+    -c "Add :CFBundleIdentifier string $BUNDLE_ID" "$plist" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$plist"
+  /usr/libexec/PlistBuddy \
+    -c "Set :CFBundleName '$ROUTER_APP_NAME'" "$plist" 2>/dev/null || true
+
+  # Build + nest splash .app
+  local splash_src="$SCRIPT_DIR/nx-splash/build-splash.sh"
+  local splash_target="$ROUTER_PATH/Contents/Resources/NX Splash.app"
+  if [ -x "$splash_src" ] && command -v swiftc >/dev/null 2>&1; then
+    info "  splash 빌드/번들링"
+    "$splash_src" "$splash_target" >/dev/null
+    ok "  splash: $splash_target"
+  else
+    warn "  swiftc 또는 build-splash.sh 없음 — splash 생략 (notification fallback으로 동작)"
+  fi
+
+  # Ad-hoc re-sign the whole bundle after nesting splash + Info.plist edits
+  codesign --force --deep --sign - "$ROUTER_PATH" 2>&1 | tail -2 || true
 
   # Mac NexonPlug.app이 시스템에 있으면 scheme 경합 가능 → 우리 Router만 핸들러로
   if [ -d "/Library/Application Support/Nexon/Plug/NexonPlug.app" ]; then
@@ -212,7 +228,7 @@ step9_build_router_app() {
   fi
 
   "$LSREGISTER" -f "$ROUTER_PATH"
-  ok "Router 앱 생성 + LSF 등록"
+  ok "Router 앱 생성 + splash 번들 + LSF 등록"
 }
 
 step10_verify() {
