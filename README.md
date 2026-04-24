@@ -78,7 +78,7 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 ```bash
 brew tap Sikarugir-App/sikarugir
 brew install --cask sikarugir
-open -a Sikarugir
+open -a "Sikarugir Creator"
 ```
 
 Sikarugir Creator → **New Blank Wrapper** 클릭 → 다음 설정:

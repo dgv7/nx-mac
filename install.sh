@@ -14,8 +14,9 @@
 
 set -euo pipefail
 
-BLUE='\033[34m'; GREEN='\033[32m'; YELLOW='\033[33m'; RED='\033[31m'
-RESET='\033[0m'; BOLD='\033[1m'
+# $'...' stores actual ESC chars so the codes render in both printf and cat <<EOF
+BLUE=$'\033[34m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'
+RESET=$'\033[0m'; BOLD=$'\033[1m'
 
 info()   { printf "${BLUE}[*]${RESET} %s\n" "$*"; }
 ok()     { printf "${GREEN}[✓]${RESET} %s\n" "$*"; }
@@ -49,13 +50,14 @@ sleep 2
 
 # ─── 1. Xcode CLT ───
 header "1/5 · Xcode Command Line Tools"
-if [ -x "/Library/Developer/CommandLineTools/usr/bin/git" ] && xcode-select -p >/dev/null 2>&1; then
-  ok "이미 설치됨"
+# 전체 Xcode 또는 CLT 중 하나라도 있고 git/clang 접근 가능하면 OK
+if xcode-select -p >/dev/null 2>&1 && xcrun --find git >/dev/null 2>&1 && xcrun --find clang >/dev/null 2>&1; then
+  ok "이미 설치됨 ($(xcode-select -p))"
 else
   info "시스템 설치 dialog 호출 중. 팝업에서 '설치'를 클릭하세요."
   xcode-select --install 2>/dev/null || true
   echo -n "설치 완료 대기 중"
-  until [ -x "/Library/Developer/CommandLineTools/usr/bin/git" ]; do
+  until xcrun --find git >/dev/null 2>&1 && xcrun --find clang >/dev/null 2>&1; do
     printf "."
     sleep 5
   done
@@ -81,8 +83,9 @@ fi
 
 # ─── 3. Sikarugir Creator ───
 header "3/5 · Sikarugir Creator"
-if [ -d "/Applications/Sikarugir.app" ]; then
-  ok "이미 설치됨"
+SIKARUGIR_APP="/Applications/Sikarugir Creator.app"
+if [ -d "$SIKARUGIR_APP" ]; then
+  ok "이미 설치됨 ($SIKARUGIR_APP)"
 else
   info "brew tap Sikarugir-App/sikarugir"
   brew tap Sikarugir-App/sikarugir >/dev/null
@@ -123,7 +126,7 @@ ${BOLD}Sikarugir Creator에서 직접 클릭해야 하는 유일한 단계입니
 생성을 자동 감지합니다 (최대 30분 대기).
 
 EOF
-  open -a "Sikarugir" 2>/dev/null || open "/Applications/Sikarugir.app" 2>/dev/null || true
+  open "$SIKARUGIR_APP" 2>/dev/null || open -a "Sikarugir Creator" 2>/dev/null || true
   echo -n "대기 중"
   for i in $(seq 1 1800); do
     if [ -d "$WRAPPER_PATH" ]; then

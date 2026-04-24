@@ -78,7 +78,7 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 ```bash
 brew tap Sikarugir-App/sikarugir
 brew install --cask sikarugir
-open -a Sikarugir
+open -a "Sikarugir Creator"
 ```
 
 In Sikarugir Creator, click **New Blank Wrapper** and fill in:
