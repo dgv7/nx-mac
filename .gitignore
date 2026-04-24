@@ -3,9 +3,11 @@
 .AppleDouble
 .LSOverride
 
-# 대용량/라이선스 이슈 파일
-downloads/           # NexonPlug installer (공식 CDN에서 받음)
-fonts-backup/        # MS gulim.ttc 등 저작권 폰트
+# NexonPlug installer (공식 CDN에서 받음, 재배포 X)
+downloads/
+
+# MS gulim.ttc 등 저작권 폰트 (재배포 X)
+fonts-backup/
 *.ttc
 *.ttf
 
