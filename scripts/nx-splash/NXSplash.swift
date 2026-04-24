@@ -1,21 +1,23 @@
 // NXSplash — nx-mac v0.1 splash window
-// Shows immediate feedback during Wine cold-start (~50s).
-// Auto-dismisses when Plug window appears, or after hard timeout.
-// Communicates with router/exit-watcher via /tmp/nx-launcher-status.
+// Honest, time-free UX: step text driven by real shell markers, no ETA/timers.
+// Auto-dismisses when Plug window appears.
+// Communicates with router via /tmp/nx-launcher-status.
 
 import Cocoa
 import SwiftUI
 
 // ─────────────────────────── config ───────────────────────────
 let statusFile = "/tmp/nx-launcher-status"
-let hardTimeout: TimeInterval = 120
-let plugDetectMinElapsed: TimeInterval = 5
+let hardTimeout: TimeInterval = 180
+let plugDetectMinElapsed: TimeInterval = 3
+let windowSettleDelay: TimeInterval = 0.8
 let fadeOutDuration: TimeInterval = 0.35
+let slowHintThreshold: TimeInterval = 15   // waiting > 15s on same state -> soft hint
 
 // ─────────────────────────── state ────────────────────────────
 final class SplashState: ObservableObject {
     @Published var stepText: String = "준비 중..."
-    @Published var elapsed: Int = 0
+    @Published var hintText: String? = nil
     @Published var isDismissing: Bool = false
 }
 
@@ -25,7 +27,7 @@ struct SplashView: View {
     let onCancel: () -> Void
 
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             VStack(spacing: 2) {
                 Text("NX Launcher")
                     .font(.system(size: 22, weight: .semibold, design: .rounded))
@@ -34,32 +36,41 @@ struct SplashView: View {
                     .font(.system(size: 12, weight: .regular, design: .rounded))
                     .foregroundColor(.secondary)
             }
-            .padding(.top, 4)
+            .padding(.top, 2)
 
             ProgressView()
                 .progressViewStyle(.circular)
                 .scaleEffect(0.85)
-                .padding(.vertical, 4)
+                .padding(.vertical, 2)
 
-            VStack(spacing: 3) {
-                Text(state.stepText)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.primary.opacity(0.9))
-                    .multilineTextAlignment(.center)
-                    .frame(height: 16)
-                Text("\(state.elapsed)초 / 약 50초")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(.secondary.opacity(0.7))
+            Text(state.stepText)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.primary.opacity(0.9))
+                .multilineTextAlignment(.center)
+                .frame(height: 18)
+                .id(state.stepText)
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.25), value: state.stepText)
+
+            ZStack {
+                Color.clear.frame(height: 30)
+                if let hint = state.hintText {
+                    Text(hint)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary.opacity(0.75))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 12)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
+            .animation(.easeInOut(duration: 0.35), value: state.hintText)
 
             Button(action: onCancel) {
-                Text("취소")
-                    .frame(minWidth: 58)
+                Text("취소").frame(minWidth: 58)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
             .keyboardShortcut(.escape, modifiers: [])
-            .padding(.top, 2)
         }
         .padding(.vertical, 26)
         .padding(.horizontal, 38)
@@ -86,18 +97,15 @@ func runShell(_ cmd: String) {
     try? p.run()
 }
 
-func pgrepExists(_ pattern: String) -> Bool {
-    let p = Process()
-    p.launchPath = "/usr/bin/pgrep"
-    p.arguments = ["-f", pattern]
-    p.standardOutput = Pipe()
-    p.standardError = Pipe()
-    do {
-        try p.run()
-        p.waitUntilExit()
-        return p.terminationStatus == 0
-    } catch {
-        return false
+func stepTextFor(_ status: String?) -> String {
+    switch status {
+    case "booting"?:  return "준비 중..."
+    case "cleanup"?:  return "이전 세션 정리"
+    case "symlink"?:  return "환경 점검"
+    case "spawn"?:    return "Plug 시작"
+    case "waiting"?:  return "로그인 창 준비 중"
+    case "ready"?, "READY"?, "DONE"?: return "완료"
+    default:          return "준비 중..."
     }
 }
 
@@ -117,8 +125,9 @@ func detectPlugWindow() -> Bool {
         let owner = (info[kCGWindowOwnerName as String] as? String ?? "").lowercased()
         let title = (info[kCGWindowName as String] as? String ?? "").lowercased()
 
-        let matchers = ["nexonplug", "nexon plug", "넥슨플러그", "넥슨", "baram", "바람",
-                        "plug.exe", "wine64-preloader", "wine-preloader"]
+        let matchers = ["nexonplug", "nexon plug", "넥슨플러그", "넥슨",
+                        "baram", "바람", "plug.exe",
+                        "wine64-preloader", "wine-preloader"]
         for m in matchers {
             if owner.contains(m) || title.contains(m) {
                 return true
@@ -134,7 +143,6 @@ app.setActivationPolicy(.regular)
 
 let state = SplashState()
 
-// Window
 let win = NSWindow(
     contentRect: NSRect(x: 0, y: 0, width: 320, height: 240),
     styleMask: [.titled, .fullSizeContentView],
@@ -153,7 +161,6 @@ win.standardWindowButton(.miniaturizeButton)?.isHidden = true
 win.standardWindowButton(.zoomButton)?.isHidden = true
 win.standardWindowButton(.closeButton)?.isHidden = true
 
-// Visual effect background (sidebar blur, native rounded corners)
 let fx = NSVisualEffectView()
 fx.material = .sidebar
 fx.blendingMode = .behindWindow
@@ -180,13 +187,18 @@ NSLayoutConstraint.activate([
 win.makeKeyAndOrderFront(nil)
 NSApp.activate(ignoringOtherApps: true)
 
-// ─────────────────────────── step/poll loop ───────────────────
-writeStatus("booting")
+// ─────────────────────────── main loop ────────────────────────
+// Note: do NOT write "booting" here — the AppleScript router writes it
+// before spawning the splash, and the shell cmd may have already advanced
+// the state by the time we start. Read-only from here.
 
 let startedAt = Date()
+var lastStatus: String? = readStatus()
+var lastStatusChangeAt = Date()
+state.stepText = stepTextFor(lastStatus)
 var plugFirstSeen: Date? = nil
 
-func dismiss(reason: String) {
+func dismiss() {
     guard !state.isDismissing else { return }
     state.isDismissing = true
     DispatchQueue.main.asyncAfter(deadline: .now() + fadeOutDuration + 0.05) {
@@ -194,63 +206,39 @@ func dismiss(reason: String) {
     }
 }
 
-func updateStepText(elapsed t: Int, statusHint: String?) {
-    // Status file hint overrides time-based text when available.
-    if let h = statusHint {
-        switch h {
-        case "cleanup": state.stepText = "이전 Wine 프로세스 정리"
-        case "symlink": state.stepText = "환경 검증 및 심링크 확인"
-        case "spawn":   state.stepText = "Plug 프로세스 시작"
-        case "waiting": state.stepText = "로그인 창 로딩 중"
-        case "ready":   state.stepText = "준비 완료"
-        default: break
-        }
-        if ["cleanup", "symlink", "spawn", "waiting", "ready"].contains(h) { return }
-    }
-    switch t {
-    case 0..<3:   state.stepText = "Wine 환경 준비"
-    case 3..<8:   state.stepText = "이전 프로세스 정리"
-    case 8..<14:  state.stepText = "환경 검증"
-    case 14..<22: state.stepText = "Plug 프로세스 시작"
-    case 22..<38: state.stepText = "런처 초기화"
-    case 38..<55: state.stepText = "로그인 창 로딩"
-    default:      state.stepText = "거의 완료..."
-    }
-}
-
-Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-    let elapsed = Int(Date().timeIntervalSince(startedAt))
-    state.elapsed = elapsed
-
+Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+    let now = Date()
+    let elapsed = now.timeIntervalSince(startedAt)
     let status = readStatus()
-    updateStepText(elapsed: elapsed, statusHint: status)
 
-    // External signals
-    if status == "READY" || status == "DONE" {
-        dismiss(reason: "status:\(status ?? "")")
-        return
-    }
-    if status == "CANCEL" {
-        // someone else cancelled — just bail
-        NSApp.terminate(nil)
-        return
+    // Signal-driven step text
+    if status != lastStatus {
+        lastStatus = status
+        lastStatusChangeAt = now
+        state.stepText = stepTextFor(status)
+        state.hintText = nil  // reset hint on state change
     }
 
-    // Detect Plug window (primary readiness signal)
-    if Double(elapsed) >= plugDetectMinElapsed && detectPlugWindow() {
-        if plugFirstSeen == nil { plugFirstSeen = Date() }
-        // Small settle delay so Plug fully renders before we vanish
-        if let t = plugFirstSeen, Date().timeIntervalSince(t) >= 1.0 {
-            dismiss(reason: "window-detected")
+    // External terminal signals
+    if status == "READY" || status == "DONE" { dismiss(); return }
+    if status == "CANCEL" { NSApp.terminate(nil); return }
+
+    // Plug window detection (primary readiness)
+    if elapsed >= plugDetectMinElapsed && detectPlugWindow() {
+        if plugFirstSeen == nil { plugFirstSeen = now }
+        if let t = plugFirstSeen, now.timeIntervalSince(t) >= windowSettleDelay {
+            dismiss()
             return
         }
     }
 
-    // Hard timeout
-    if Double(elapsed) >= hardTimeout {
-        dismiss(reason: "timeout")
-        return
+    // Soft hint when a state sticks longer than expected
+    let stickDuration = now.timeIntervalSince(lastStatusChangeAt)
+    if status == "waiting" && stickDuration > slowHintThreshold && state.hintText == nil {
+        state.hintText = "시간이 조금 걸리고 있어요.\n계속하려면 기다려 주세요 (ESC로 취소)"
     }
+
+    if elapsed >= hardTimeout { dismiss(); return }
 }
 
 app.run()
