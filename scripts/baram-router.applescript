@@ -36,7 +36,7 @@ on launchBaram(this_URL)
 
 	set logFile to "/tmp/baram-url-router.log"
 	set statusFile to "/tmp/nx-launcher-status"
-	set wrapperPath to "/Users/eggxoxo/Applications/Sikarugir/Baram.app"
+	set wrapperPath to "/Users/insu/Applications/Sikarugir/Baram.app"
 	set wineBin to wrapperPath & "/Contents/SharedSupport/wine/bin"
 	set winePrefix to wrapperPath & "/Contents/SharedSupport/prefix"
 	set frameworksPath to wrapperPath & "/Contents/Frameworks"
