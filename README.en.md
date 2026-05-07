@@ -8,11 +8,20 @@
 
 ---
 
-A one-click macOS launcher for the Korean MMORPG 바람의나라 (Kingdom of the Winds). You don't have to touch Wine settings — the builder applies one verified preset automatically, and after that it's just a `.app` to double-click.
+## Just the result
 
-Built on the Sikarugir Wine wrapper (CX 24.0.7). A **builder, AppleScript URL router, and SwiftUI splash** form the launch chain. The project doesn't tune Wine itself — it trusts the free upstream stack and focuses on **one verified preset per game**, applied automatically.
+Install is **one command line + one font file + one double-click**.
 
-## Key metrics
+```bash
+curl -fsSL https://raw.githubusercontent.com/dgv7/nx-mac/main/install.sh | bash
+```
+
+Two follow-ups after the script finishes:
+
+1. **Drop in `gulim.ttc`** once — copy `C:\Windows\Fonts\gulim.ttc` from your own Windows install to `~/Applications/Sikarugir/Baram.app/Contents/SharedSupport/prefix/drive_c/windows/Fonts/` ([alternatives](#sourcing-gulimttc))
+2. **Right-click `NX Launcher.app` → Open** — Gatekeeper, just once
+
+That's it. From then on, double-click → 7.3 seconds → login window.
 
 | Metric | Value |
 |---|---|
@@ -23,55 +32,59 @@ Built on the Sikarugir Wine wrapper (CX 24.0.7). A **builder, AppleScript URL ro
 | GameGuard (NGS) passthrough | verified to in-game |
 | Runtime cost | $0 |
 
-## Supported
+**Requirements:** macOS 14+ · Apple Silicon · ~25 GB free disk
+**Supported game:** 바람의나라 (v0.1) · other Nexon titles: see [Compatibility](#compatibility)
 
-| Game | Status | Notes |
-|---|---|---|
-| 바람의나라 | end-to-end verified | v0.1 release target |
-
-Other Nexon titles are untested. See [Compatibility](#compatibility) for predictions.
+> The one-liner is safe to interrupt. Every step is idempotent — re-running picks up where it stopped.
 
 ---
 
-# Install
+## How "one line" became one line
 
-**Requirements:** macOS 14+ · Apple Silicon · ~25 GB free disk.
+It wasn't one line at first. **Three days, ~12 hours, 16 blockers** before it collapsed into a single command.
 
-Two paths — pick one.
+| Session | Breakthrough |
+|---|---|
+| Day 1 | Sikarugir + Wine 10 full chain working; Chromium black screen (`VizDisplayCompositor` flag); AppleScript URL handler; NexonLauncher pre-spawn trick |
+| Day 2 | **Korean IME composition bug** — Wine 10 Mac driver doesn't forward pre-edit to IMM32. Fixed by swapping to **CX 24.0.7**. Discovered libinotify rpath also needs `SharedSupport/`, not just `wine/lib/` |
+| Day 3 | **Where the 50 s cold-start really went** — phase profiling showed the 40 s auto-start timeout on the `Nexon Launcher` Windows service was the culprit. Disabled → **50 s → 7.3 s** |
 
-## 1. One-liner (recommended)
+What had to be solved (excerpt):
 
-Paste a single line into Terminal. It chains Xcode CLT → Homebrew → Sikarugir → repo clone → builder. The only manual step is clicking through Sikarugir Creator once to make the wrapper.
+1. macOS Tahoe libinotify rpath — symlink 94 Frameworks dylibs
+2. Wine drive Free Space 0 Bytes — `dosdevices` absolute paths
+3. winetricks Korean stack (`corefonts → cjkfonts → vcrun2019`, in order)
+4. NexonPlug self-update race — run NGM smallpatch standalone
+5. Mac LSF URL scheme race — unregister Mac Plug.app + Router Viewer role
+6. Plug Wine crash — replaced by Windows-service disable
+7. Chromium GPU black screen — `--disable-features=VizDisplayCompositor --in-process-gpu`
+8. Korean IME pre-edit — engine swap to **CX 24.0.7**
+9. 50 s cold-start — disable `Nexon Launcher` service
+10. 18.22 GB game download — handled by NGM
+11. Wine tree leftovers on exit — hardened exit-watcher (zero idle)
+12. ... GameGuard passthrough / OTP / character select / in-game
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/dgv7/nx-mac/main/install.sh | bash
-```
+Full record: [STATUS.md](STATUS.md) · strategy branches & abort criteria: [ROADMAP.md](ROADMAP.md) · smoke checklist: [SMOKE_TEST.md](SMOKE_TEST.md)
 
-Follow the prompts; `~/Applications/Sikarugir/NX Launcher.app` is installed at the end. Then jump to [gulim.ttc placement](#3-place-gulimttc-korean-font) and [First launch](#4-first-launch).
+All of it now lives inside [`build-baram-app.sh`](scripts/build-baram-app.sh). The user's job is the **three steps above** — nothing more.
 
-> **Safe to interrupt** — every step is idempotent. Re-running the same command picks up where it stopped.
+---
 
-## 2. Manual install
-
-If you'd rather do it step by step:
-
-### 0. Prerequisites
+## If you'd rather walk through it manually
 
 <details>
-<summary><b>Install Xcode Command Line Tools / Homebrew / Git</b> (click to expand)</summary>
+<summary><b>Manual install (5 steps)</b></summary>
+
+### 0. Prerequisites
 
 ```bash
 # Xcode Command Line Tools — provides git, clang, codesign
 xcode-select --install
 
-# Homebrew
+# Homebrew (if missing)
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# (Apple Silicon only) add brew to PATH
 eval "$(/opt/homebrew/bin/brew shellenv)"
 ```
-
-</details>
 
 ### 1. Install Sikarugir Creator & create the wrapper
 
@@ -81,7 +94,7 @@ brew install --cask sikarugir
 open -a "Sikarugir Creator"
 ```
 
-In Sikarugir Creator, click **New Blank Wrapper** and fill in:
+In Sikarugir Creator → **New Blank Wrapper** with:
 
 | Setting | Value |
 |---|---|
@@ -91,8 +104,6 @@ In Sikarugir Creator, click **New Blank Wrapper** and fill in:
 
 The engine must be **CX 24.0.7** exactly — no other version reproduces the Korean IME fix.
 
-When done, `~/Applications/Sikarugir/Baram.app` is created.
-
 ### 2. Run the nx-mac builder
 
 ```bash
@@ -101,7 +112,7 @@ cd nx-mac
 ./scripts/build-baram-app.sh
 ```
 
-The builder automates:
+What the builder automates:
 
 - libinotify dylib symlinks (both `wine/lib/` and `SharedSupport/`)
 - `dosdevices/c:` absolute-path correction
@@ -112,51 +123,48 @@ The builder automates:
 - `NX Launcher.app` creation + `nexonplug://` URL-handler registration
 - SwiftUI Splash compile + bundle
 
-> **First run takes 10–20 minutes** — don't kill the terminal during the `cjkfonts` download step even if it goes quiet. It's fetching several GB of font packages.
+> First run takes 10–20 minutes — don't kill the terminal during the `cjkfonts` step even if it goes quiet. It's fetching several GB of font packages.
 
-### 3. Place gulim.ttc (Korean font)
+### 3. Place gulim.ttc
 
-Copy `C:\Windows\Fonts\gulim.ttc` from your own Windows PC to:
+Copy `C:\Windows\Fonts\gulim.ttc` from your own Windows install to:
 
 ```
 ~/Applications/Sikarugir/Baram.app/Contents/SharedSupport/prefix/drive_c/windows/Fonts/gulim.ttc
 ```
 
-<details>
-<summary><b>If you don't have a Windows PC</b></summary>
+#### Sourcing gulim.ttc
 
-- **Borrow a friend's or PC bang (PC 방) Windows**, copy via USB — most practical
-- **Office or parent's work laptop** — any Windows install has the font
-- **Parallels Desktop / UTM trial**: install Windows in a VM and grab `C:\Windows\Fonts\gulim.ttc`
-- **Borrow a used Windows laptop** briefly
+If you don't have a Windows PC:
+
+- **Friend's PC / PC bang (PC방)** — copy via USB, the most practical route
+- **Office or family laptop** — virtually every Windows install has the font
+- **Parallels Desktop / UTM trial** — install Windows in a VM and grab the file
+- **Cheap second-hand Windows laptop** for a one-time copy
 
 The game launches without it, but **Korean text renders as squares (□)**. The font is Microsoft proprietary so we can't bundle it.
-
-</details>
 
 ### 4. First launch
 
 Double-click `~/Applications/Sikarugir/NX Launcher.app`.
 
-> **If macOS says "unidentified developer"**
->
-> The app is ad-hoc signed, so Gatekeeper blocks the first launch.
-> - **Option 1**: **Right-click** `NX Launcher.app` → **Open** → click **Open** again in the warning dialog (once)
-> - **Option 2**: System Settings → Privacy & Security → scroll to "`NX Launcher` was blocked…" → **Open Anyway**
+> If macOS says "unidentified developer":
+> - **Right-click → Open → Open** in the warning dialog (once)
+> - Or: System Settings → Privacy & Security → "Open Anyway"
 
 The splash appears immediately and auto-dismisses when the Plug login window is detected.
 
-> **Ignore the "게임 실행에 실패했습니다" popup**
->
-> After clicking `게임시작` in Plug, the popup below briefly appears — **but the game actually launches normally**. Click `확인` to dismiss it; the OTP prompt or game window comes up right behind.
+> **Ignore the "게임 실행에 실패했습니다" popup** — after clicking `게임시작` in Plug it briefly appears, but the game actually launches normally. Click `확인` and the OTP prompt or game window comes up right behind.
 >
 > ![plug false-error popup](docs/screenshots/plug-false-error.png)
 >
-> A false alarm from Plug misreading the game process's exit code under Wine. Auto-dismiss is deliberately not implemented — OTP and real service notices use the same dialog style, and silencing all of them risks hiding something the user actually needs to read.
+> Plug misreads the game process's exit code under Wine. Auto-dismiss is deliberately not implemented — OTP and real service notices share the same dialog style, and silencing all of them risks hiding something the user actually needs to read.
+
+</details>
 
 ---
 
-# Troubleshooting
+## Troubleshooting
 
 <details>
 <summary><b>The splash window won't go away</b></summary>
@@ -164,8 +172,8 @@ The splash appears immediately and auto-dismisses when the Plug login window is 
 If Plug's login window is up but the splash is still there:
 
 1. Press `ESC` or click the splash's **Cancel** button (kills the full Wine tree)
-2. `pkill -f "NX Splash"` in Terminal to force-close
-3. If one stage text has been stuck for 30+ seconds, Wine may be hung — press `ESC` and relaunch `NX Launcher.app`
+2. `pkill -f "NX Splash"` to force-close
+3. If a single stage text has been stuck for 30+ seconds, Wine may be hung — `ESC` and relaunch
 
 </details>
 
@@ -174,11 +182,12 @@ If Plug's login window is up but the splash is still there:
 
 Safest order:
 
-1. **Log out in-game** (back to the character select screen)
-2. **Close the Plug window** via its `X` button
+1. Log out in-game (back to character select)
+2. Close the Plug window via its X button
 3. `baram-exit-watcher` then tears down the entire Wine tree automatically
 
 If you need to force-quit:
+
 ```bash
 pkill -9 -f 'NexonPlug|wine/bin|gamer.exe'
 ```
@@ -190,20 +199,18 @@ Every launch is a cold start (zero-idle policy).
 <details>
 <summary><b>Cold-start is taking more than 60 seconds</b></summary>
 
-Check whether the builder successfully disabled the `Nexon Launcher` Windows service:
+The `Nexon Launcher` service may still be live:
 
 ```bash
 ~/Applications/Sikarugir/Baram.app/Contents/SharedSupport/wine/bin/wine \
   sc query "Nexon Launcher"
 ```
 
-`STATE: STOPPED` (or an error) is expected. If it shows `RUNNING`, re-run the builder:
+`STATE: STOPPED` (or an error) is expected. If `RUNNING`, re-run the builder (idempotent):
 
 ```bash
 cd ~/nx-mac && ./scripts/build-baram-app.sh
 ```
-
-The builder is idempotent, so re-running is safe.
 
 </details>
 
@@ -221,7 +228,7 @@ cd ~/nx-mac && ./scripts/build-baram-app.sh
 <details>
 <summary><b>Korean text renders as squares (□)</b></summary>
 
-`gulim.ttc` is missing or in the wrong path. Revisit [3. Place gulim.ttc](#3-place-gulimttc-korean-font).
+`gulim.ttc` is missing or in the wrong path. Revisit [Place gulim.ttc](#3-place-gulimttc).
 
 </details>
 
@@ -229,14 +236,9 @@ cd ~/nx-mac && ./scripts/build-baram-app.sh
 <summary><b>I want to uninstall completely</b></summary>
 
 ```bash
-# Remove NX Launcher and the Sikarugir wrapper
 rm -rf ~/Applications/Sikarugir/NX\ Launcher.app
 rm -rf ~/Applications/Sikarugir/Baram.app
-
-# Remove Sikarugir Creator (only if you don't use other wrappers)
-brew uninstall --cask sikarugir
-
-# Remove the nx-mac project
+brew uninstall --cask sikarugir         # only if you don't use other wrappers
 rm -rf ~/nx-mac
 
 # Rebuild the URL-handler database
@@ -317,7 +319,7 @@ Predictions for other Nexon titles (untested):
 Conscious choices and accepted limitations:
 
 - **User-supplied gulim.ttc** — MS proprietary font; substitutes render the UI off-metric.
-- **"실행 실패" popup** ([see First launch](#4-first-launch)) — a Plug false alarm. Click `확인` and the game proceeds. Auto-dismiss is avoided because OTP and real notices share the same dialog style.
+- **"실행 실패" popup** — a Plug false alarm. Click `확인` and the game proceeds. Auto-dismiss is avoided because OTP and real notices share the same dialog style.
 - **NGS rule changes, server-side** — current behavior is valid as of April 2026. Nexon can update anti-cheat rules without notice.
 - **Sikarugir Creator "Refresh" wipes configuration** — the builder is idempotent; re-run to restore.
 - **x86_64 Wine engine, not ARM-native** — Apple Game Porting Toolkit would be the ARM path but Chromium-in-Plug compatibility is weaker than CX 24 today. Re-evaluated under Plan B.
