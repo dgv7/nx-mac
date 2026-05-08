@@ -131,6 +131,22 @@ step5_install_korean_env() {
   else
     info "  vcrun2019 이미 설치"
   fi
+
+  # MS gulim.ttc — 바람의나라 한글 렌더링 핵심. winetricks cjkfonts가 동명 파일을
+  # 깔지만 MS 원본이 아니어서 일부 글자가 깨짐. fonts/gulim.ttc로 덮어쓰기.
+  local local_gulim="$PROJECT_DIR/fonts/gulim.ttc"
+  local target_gulim="$fonts_dir/gulim.ttc"
+  if [ -f "$local_gulim" ]; then
+    if ! cmp -s "$local_gulim" "$target_gulim" 2>/dev/null; then
+      cp "$local_gulim" "$target_gulim"
+      info "  fonts/gulim.ttc → wrapper 복사"
+    else
+      info "  gulim.ttc 동일 (skip)"
+    fi
+  elif [ ! -f "$target_gulim" ]; then
+    warn "  fonts/gulim.ttc 없음 — Windows에서 복사해 $local_gulim 에 두면 자동 적용"
+  fi
+
   ok "한글 환경 구성 완료"
 }
 
@@ -285,13 +301,14 @@ main() {
   echo
   cat <<EOF
 다음 단계:
-  1. MS gulim.ttc (13.5MB)를 본인 Windows PC에서 복사해서 아래 경로에 배치:
-     $WRAPPER_PATH/Contents/SharedSupport/prefix/drive_c/windows/Fonts/gulim.ttc
-
-  2. '${ROUTER_APP_NAME}.app' 더블클릭 → 넥슨 로그인 → 게임 시작
+  1. '${ROUTER_APP_NAME}.app' 더블클릭 → 넥슨 로그인 → 게임 시작
      또는 브라우저에서 baram.nexon.com 로그인 → 게임 시작 (URL handler)
 
-  3. 최초 실행 시 Plug이 NGM 및 게임 리소스 자동 다운로드 (18GB, 20~60분)
+  2. 최초 실행 시 Plug이 NGM 및 게임 리소스 자동 다운로드 (18GB, 20~60분)
+
+  · gulim.ttc는 fonts/gulim.ttc에서 자동 적용됨.
+    repo에 없는 경우만 Windows에서 복사해
+    fonts/gulim.ttc 또는 Wrapper 내부 Fonts/ 에 직접 배치.
 EOF
 }
 

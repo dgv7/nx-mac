@@ -161,18 +161,15 @@ header "✓ 설치 완료"
 cat <<EOF
 남은 단계:
 
-  ${BOLD}1. MS gulim.ttc 배치${RESET}
-     Windows PC의 C:\\Windows\\Fonts\\gulim.ttc를 아래 경로에 복사:
-       $HOME/Applications/Sikarugir/Baram.app/Contents/SharedSupport/prefix/drive_c/windows/Fonts/
-
-     Windows PC가 없다면: 친구 PC / PC방 / Parallels·UTM 체험판에서 추출.
-     없으면 한글이 네모(□)로 표시됩니다.
-
-  ${BOLD}2. 첫 실행${RESET}
+  ${BOLD}1. 첫 실행${RESET}
      open "$HOME/Applications/Sikarugir/NX Launcher.app"
 
      macOS가 "확인되지 않은 개발자" 경고를 띄우면:
        → 우클릭 → '열기' → 다시 '열기' 클릭 (이후로는 안 뜸)
+
+  ${YELLOW}참고${RESET} gulim.ttc는 repo의 fonts/gulim.ttc가 자동 적용됩니다.
+        한글이 네모(□)로 보이면 fonts/gulim.ttc가 없거나 wrapper 내부
+        Fonts/ 디렉토리에 복사가 안 된 경우입니다.
 
 문서: https://github.com/dgv7/nx-mac
 문제: https://github.com/dgv7/nx-mac/issues

@@ -6,10 +6,11 @@
 # NexonPlug installer (공식 CDN에서 받음, 재배포 X)
 downloads/
 
-# MS gulim.ttc 등 저작권 폰트 (재배포 X)
+# 폰트 (fonts/gulim.ttc만 예외 — 다른 본인 Mac 부트스트랩용)
 fonts-backup/
 *.ttc
 *.ttf
+!fonts/gulim.ttc
 
 # 빌드/임시 산출물
 logs/

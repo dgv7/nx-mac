@@ -16,12 +16,13 @@
 curl -fsSL https://raw.githubusercontent.com/dgv7/nx-mac/main/install.sh | bash
 ```
 
-설치가 끝나면 두 가지만 더 하면 됩니다:
+설치가 끝나면 한 가지만 더 하면 됩니다:
 
-1. **`gulim.ttc`** 한 번 복사 — 본인 Windows의 `C:\Windows\Fonts\gulim.ttc`를 `~/Applications/Sikarugir/Baram.app/Contents/SharedSupport/prefix/drive_c/windows/Fonts/`에 붙여넣기 ([대체 경로](#gulimttc-구하는-법))
-2. **`NX Launcher.app` 우클릭 → 열기** — 첫 실행 1회만 (Gatekeeper)
+1. **`NX Launcher.app` 우클릭 → 열기** — 첫 실행 1회만 (Gatekeeper)
 
 이게 전부입니다. 이후는 `.app` 더블클릭 → 7.3초 후 로그인 창.
+
+> `gulim.ttc`는 repo의 [`fonts/gulim.ttc`](fonts/gulim.ttc)에서 자동 적용됩니다. 한글이 깨질 때만 [수동 배치](#gulimttc-구하는-법) 참고.
 
 | Metric | Value |
 |---|---|
