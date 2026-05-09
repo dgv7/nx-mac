@@ -1,73 +1,154 @@
+<div align="center">
+
 # nx-mac
 
-> **바람의나라 on macOS.** 더블클릭에서 로그인 창까지 **7.3초**. 상주 프로세스 0.
+**바람의나라 on macOS — 더블클릭에서 로그인 창까지 7.3초**
+
+[![macOS](https://img.shields.io/badge/macOS-14%2B-000000?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M--series-555555?style=flat-square)](https://support.apple.com/en-us/HT211814)
+[![License](https://img.shields.io/badge/license-MIT-2ea043?style=flat-square)](LICENSE)
+[![Version](https://img.shields.io/badge/version-v0.1.2-2ea043?style=flat-square)](#timeline)
+[![Last verified](https://img.shields.io/badge/last%20verified-2026--05--09-1f6feb?style=flat-square)](#status)
+[![Cold start](https://img.shields.io/badge/cold%20start-7.3s-d2691e?style=flat-square)](#design-notes)
 
 [한국어](./README.md) · [English](./README.en.md)
 
-![바람의나라 일월마을 on macOS](docs/screenshots/baram-ingame.png)
+<br>
+
+<img src="docs/screenshots/baram-ingame.png" alt="바람의나라 일월마을 on macOS" width="100%">
+
+</div>
 
 ---
 
-## 결과만 먼저
-
-설치는 **명령어 한 줄 + 폰트 한 개 + 더블클릭 한 번**입니다.
+## TL;DR
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dgv7/nx-mac/main/install.sh | bash
 ```
 
-설치가 끝나면 한 가지만 더 하면 됩니다:
-
-1. **`NX Launcher.app` 우클릭 → 열기** — 첫 실행 1회만 (Gatekeeper)
+설치가 끝나면 한 번: **`NX Launcher.app` 우클릭 → 열기** (Gatekeeper 1회).
 
 이게 전부입니다. 이후는 `.app` 더블클릭 → 7.3초 후 로그인 창.
 
-> `gulim.ttc`는 repo의 [`fonts/gulim.ttc`](fonts/gulim.ttc)에서 자동 적용됩니다. 한글이 깨질 때만 [수동 배치](#gulimttc-구하는-법) 참고.
+> **Last verified**&nbsp;&nbsp;`2026-05-09` · macOS 15.3 · MacBook Pro M2 Pro · 바람의나라 라이브 서버  
+> **Tested chain**&nbsp;&nbsp;Sikarugir CX 24.0.7 · NexonPlug · GameGuard 통과 · 캐릭터·필드 진입까지
 
-| Metric | Value |
+---
+
+## At a glance
+
+<table>
+<tr><td>
+
+| 지표 | 값 |
 |---|---|
 | Cold-start (클릭 → Plug 로그인 창) | **7.3초** 실측 (Apple Silicon) |
 | Warm reuse | 2~3초 |
-| 상주 프로세스 | **0** (종료 시 wine 트리 전체 teardown) |
+| 상주 프로세스 | **0** — 종료 시 wine 트리 전체 teardown |
 | 한글 IME 조합 | 정상 |
 | GameGuard (NGS) 통과 | 필드 진입까지 확인 |
 | 라이선스 비용 | $0 |
 
-**요구사항**: macOS 14+ · Apple Silicon · 약 25GB 여유 디스크
-**지원 게임**: 바람의나라 (v0.1) · 다른 넥슨 게임은 [Compatibility](#compatibility) 참조
+</td></tr>
+</table>
 
-> 원라이너는 중단돼도 안전합니다. 이미 완료된 단계는 건너뛰므로 같은 명령으로 재개됩니다.
+**요구사항**&nbsp;&nbsp;macOS 14+ · Apple Silicon · 약 25GB 여유 디스크  
+**지원 게임**&nbsp;&nbsp;바람의나라 (v0.1) · 다른 넥슨 게임은 [Compatibility](#compatibility) 참조  
+**중단 안전**&nbsp;&nbsp;원라이너는 멱등 — 같은 명령으로 재개됩니다
 
 ---
 
-## 한 줄 설치가 가능해지기까지
+## Why this exists
 
-처음부터 한 줄이 아니었습니다. **3일 12시간, 16개 블로커**를 뚫고 나서야 한 줄이 됐습니다.
+게임사가 안 만들어주니 본인이 Mac에서 바람의나라를 하려고 만들었습니다. 기술적으로는 **Wine wrapper(Sikarugir CX 24.0.7) 위에 바람의나라 전용 프리셋을 얹은 launcher 번들**입니다.
 
-| 세션 | 핵심 돌파 |
-|---|---|
-| Day 1 | Sikarugir + Wine 10 풀 체인 가동, Chromium 검은화면(VizDisplayCompositor flag), AppleScript URL handler, NexonLauncher pre-spawn 트릭 |
-| Day 2 | **한글 IME 조합 버그** — Wine 10 Mac driver가 IMM32에 pre-edit을 안 흘림 → CX 24.0.7 엔진 교체로 해결. libinotify rpath가 `SharedSupport/`에도 필요한 것 발견 |
-| Day 3 | **Cold-start 50초의 정체** — phase profiling으로 `Nexon Launcher` Windows 서비스의 auto-start 40초 timeout이 범인. disabled로 두자 **50s → 7.3s** |
+v0.1은 바람의나라 전용. 다른 넥슨 게임 확장은 [ROADMAP](ROADMAP.md) v0.2+에서. 프로젝트 성격·정책은 [CLAUDE.md](CLAUDE.md)에 정리 — 무료 백엔드만, 안정성·재현성 최우선, 사업성/상업성 0.
 
-뚫어야 했던 것들 (요약):
+---
 
-1. macOS Tahoe libinotify rpath — Frameworks dylib 94개 심링크
-2. Wine 드라이브 Free Space 0 Byte — `dosdevices` 절대경로
-3. winetricks 한글 환경 (`corefonts → cjkfonts → vcrun2019` 순서)
-4. NexonPlug self-update race — NGM smallpatch 단독 실행
-5. Mac LSF URL 스킴 경쟁 — Mac Plug.app unregister + Router Viewer role
-6. Plug Wine crash — Windows 서비스 disabled로 우회
-7. Chromium GPU 검은화면 — `--disable-features=VizDisplayCompositor --in-process-gpu`
-8. 한글 IME pre-edit — Wine 10 → **CX 24.0.7** 엔진 교체
-9. Cold-start 50초 — `Nexon Launcher` 서비스 disabled
-10. 18.22GB 게임 다운로드 — NGM 자동
-11. exit 시 wine 트리 잔존 — exit-watcher 강화 (상주 0)
-12. ... GameGuard 통과 / OTP / 캐릭터 선택 / 필드 진입까지
+## Timeline
 
-기록 전체: [STATUS.md](STATUS.md) · 전략 분기와 폐기 기준: [ROADMAP.md](ROADMAP.md) · 스모크 체크리스트: [SMOKE_TEST.md](SMOKE_TEST.md)
+3일 12시간, 16개 블로커를 뚫고 나서야 한 줄이 됐습니다.
 
-지금은 이 모든 것이 [`build-baram-app.sh`](scripts/build-baram-app.sh) 안에 자동화돼 있어, 사용자가 신경 쓸 일은 위의 **세 단계**뿐입니다.
+```text
+2026-04-22  Day 1   Sikarugir + Wine 10 풀 체인 가동
+                    Chromium 검은화면 (VizDisplayCompositor flag)
+                    AppleScript URL handler
+                    NexonLauncher pre-spawn 트릭
+                    MS gulim.ttc 수동 배치 (당시)
+
+2026-04-23  Day 2   한글 IME 조합 버그 — Wine 10 Mac driver가 IMM32에 pre-edit 안 흘림
+                    └─ CX 24.0.7 엔진 교체로 해결
+                    libinotify rpath가 SharedSupport/에도 필요한 것 발견
+
+2026-04-24  Day 3   Cold-start 50초의 정체 — Nexon Launcher 서비스 auto-start 40초 timeout
+                    └─ 서비스 disabled로 50s → 7.3s (7배 단축)
+                    SwiftUI Splash · exit-watcher · NX Launcher 리브랜딩
+                    GitHub public repo 공개
+
+2026-05-08  v0.1.1  개인용 DMG 빌더 (~3GB 슬림화, 게임 데이터 제외 — Plug이 첫 실행 시 다운로드)
+
+2026-05-09  v0.1.2  fonts/gulim.ttc 동봉
+                    └─ "Windows에서 복사" 수동 단계 제거 → 진정한 한 줄 부트스트랩
+```
+
+세부 기록 → [STATUS.md](STATUS.md) · 전략 분기와 폐기 기준 → [ROADMAP.md](ROADMAP.md) · 스모크 체크리스트 → [SMOKE_TEST.md](SMOKE_TEST.md)
+
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+    Click["double-click"] --> Router["NX Launcher.app<br/>AppleScript Router"]
+    Router --> Splash["NX Splash.app<br/>SwiftUI borderless"]
+    Router --> Shell["shell cmd<br/>cleanup · symlink · spawn"]
+    Shell --> Wrapper["Baram.app<br/>Sikarugir CX 24.0.7"]
+    Wrapper --> Plug["NexonPlug.exe<br/>자체 로그인"]
+    Plug --> Game["gamer.exe<br/>바람의나라"]
+```
+
+URL handler (`nexonplug://`, `ngm://`)도 함께 등록되어 `baram.nexon.com` 브라우저 로그인 경로도 같은 Router로 수렴합니다. 설계 결정의 배경은 [Design notes](#design-notes)에.
+
+---
+
+## Status
+
+<table>
+<tr>
+<td valign="top">
+
+**Working**
+
+- [x] 한 줄 설치 (`curl | bash`)
+- [x] 원클릭 실행 (`.app` 더블클릭)
+- [x] 한글 IME 조합 입력
+- [x] GameGuard 통과 → 필드 진입
+- [x] 종료 시 상주 0
+- [x] URL handler (`nexonplug://`, `ngm://`)
+- [x] 개인용 DMG 빌더
+- [x] 폰트 자동 적용 (`fonts/gulim.ttc`)
+
+</td>
+<td valign="top">
+
+**Roadmap**
+
+- [ ] 다른 넥슨 게임 (v0.2+, [ROADMAP](ROADMAP.md))
+- [ ] Apple GPTK 2.1 + Wine 11 (Plan B, 우선순위 ↓)
+- [ ] Homebrew Cask (선택)
+- [ ] 자동 업데이트 채널
+
+**Known limits**
+
+- macOS 13 이하 미검증
+- Intel Mac은 cold-start ~30s
+- NGS 룰 변경 시 차단 가능성
+
+</td>
+</tr>
+</table>
 
 ---
 
@@ -103,7 +184,7 @@ Sikarugir Creator → **New Blank Wrapper** → 다음 설정:
 | Engine | `WS12WineCX24.0.7` |
 | OS | `Windows 10` |
 
-엔진은 반드시 **CX 24.0.7**. 다른 버전에서는 한글 IME가 재현되지 않습니다.
+엔진은 반드시 **CX 24.0.7**. 다른 버전에서는 한글 IME 조합 버그가 재현됩니다.
 
 ### 2. nx-mac 빌더 실행
 
@@ -118,34 +199,16 @@ cd nx-mac
 - libinotify dylib 심링크 (`wine/lib/` + `SharedSupport/` 양쪽)
 - `dosdevices/c:` 절대경로 교정
 - winetricks 한글 환경 (`corefonts → cjkfonts → vcrun2019`)
+- `fonts/gulim.ttc` → wrapper Fonts/ 자동 복사
 - NexonPlug 설치
-- **`Nexon Launcher` Windows 서비스 disabled** ← cold-start 50→7초의 핵심
+- `Nexon Launcher` Windows 서비스 disabled — cold-start 50→7초 핵심
 - exit-watcher 배치
 - `NX Launcher.app` 생성 + `nexonplug://` URL handler 등록
 - SwiftUI Splash 컴파일 + 번들
 
 > 첫 실행은 10~20분 걸립니다 — `cjkfonts` 단계에서 터미널이 조용해져도 종료하지 마세요. 수 GB 폰트 패키지 다운로드 중입니다.
 
-### 3. gulim.ttc 배치
-
-본인 Windows의 `C:\Windows\Fonts\gulim.ttc`를 다음 경로에 복사:
-
-```
-~/Applications/Sikarugir/Baram.app/Contents/SharedSupport/prefix/drive_c/windows/Fonts/gulim.ttc
-```
-
-#### gulim.ttc 구하는 법
-
-Windows PC가 없다면:
-
-- **친구 PC / PC방** — USB로 복사. 가장 현실적
-- **부모/지인의 회사 PC** — 대부분 사무용 Windows에 기본 포함
-- **Parallels Desktop / UTM 체험판** — VM에서 추출
-- **중고 Windows 노트북** 일회성 대여
-
-폰트 없이도 게임은 실행되지만 **한글이 네모(□)로 표시**됩니다. MS 저작권 폰트라 본 저장소에 포함할 수 없습니다.
-
-### 4. 첫 실행
+### 3. 첫 실행
 
 `~/Applications/Sikarugir/NX Launcher.app`을 더블클릭.
 
@@ -160,6 +223,17 @@ Splash가 즉시 뜨고 단계별 텍스트가 흐르며, Plug 로그인 창이 
 > ![plug false-error popup](docs/screenshots/plug-false-error.png)
 >
 > Plug이 Mac Wine 환경에서 게임 프로세스의 exit code를 오해석해 띄우는 false alarm. OTP/공지처럼 진짜 읽어야 할 팝업과 다이얼로그 스타일이 같아 자동 dismiss는 의도적으로 구현하지 않았습니다.
+
+### 4. (선택) gulim.ttc 수동 교체
+
+repo의 `fonts/gulim.ttc`가 자동 적용되지만, 본인 Windows의 폰트로 덮어쓰고 싶다면:
+
+```bash
+cp /path/to/your/gulim.ttc \
+  ~/Applications/Sikarugir/Baram.app/Contents/SharedSupport/prefix/drive_c/windows/Fonts/gulim.ttc
+```
+
+폰트가 깨질 때 (한글이 □로 표시) 외에는 손댈 필요 없습니다.
 
 </details>
 
@@ -229,7 +303,13 @@ cd ~/nx-mac && ./scripts/build-baram-app.sh
 <details>
 <summary><b>한글이 네모(□)로 표시돼요</b></summary>
 
-`gulim.ttc`가 없거나 경로가 틀립니다. [gulim.ttc 배치](#3-gulimttc-배치)를 다시 확인하세요.
+`fonts/gulim.ttc`가 wrapper로 복사되지 않았을 가능성. 빌더 재실행:
+
+```bash
+cd ~/nx-mac && ./scripts/build-baram-app.sh
+```
+
+직접 배치하려면 [수동 설치 — 4단계](#4-선택-gulimttc-수동-교체) 참고.
 
 </details>
 
@@ -253,36 +333,19 @@ rm -rf ~/nx-mac
 
 ---
 
-# How it works
+## Design notes
 
-```
-더블클릭
-  │
-  └─ NX Launcher.app (AppleScript Router)
-      │
-      ├─ NX Splash.app (SwiftUI, 상태 파일 구독 → 자동 dismiss)
-      └─ shell cmd (cleanup → symlink 검증 → wine spawn)
-          │
-          └─ Baram.app (Sikarugir wrapper, WS12WineCX24.0.7)
-              │
-              └─ NexonPlug.exe (브라우저 없이 자체 로그인)
-                  │
-                  └─ gamer.exe (바람의나라)
-```
+<sub><i>설계 결정의 배경 — 미래의 본인이 "이거 왜 이렇게 했지?"를 다시 묻지 않도록.</i></sub>
 
-URL handler(`nexonplug://`, `ngm://`)도 함께 등록되므로 `baram.nexon.com` 브라우저 로그인 경로도 동일한 router로 수렴합니다.
-
-# Design notes
-
-### 50s → 7s: cold-start 병목의 정체
+### 50s → 7s: cold-start 병목의 정체 <sub>· 2026-04-24</sub>
 
 초기 측정치 50초에서 phase profiling으로 구간별 시간을 재자, 실제 병목은 wine이 아니라 Plug이 호출하는 **`Nexon Launcher` Windows 서비스의 auto-start timeout 40초**였습니다. 서비스를 disabled로 두고 Plug이 필요한 시점에 on-demand로 spawn하게 두자 7.3초로 떨어졌습니다. 기능 손실 0.
 
-### 한글 IME: 엔진 선택 문제
+### 한글 IME: 엔진 선택 문제 <sub>· 2026-04-23</sub>
 
 Wine 10 + macOS Mac driver 조합은 한글 IME pre-edit을 IMM32로 전달하지 않아 모든 채팅 입력이 막힙니다. **CX 24.0.7 엔진 교체로 해결**. CX24는 libinotify rpath가 기존 `wine/lib/`에 더해 `SharedSupport/`도 필요해 빌더가 양쪽 모두 심링크합니다.
 
-### Splash UX: 시간 표시 없음
+### Splash UX: 시간 표시 없음 <sub>· 2026-04-24</sub>
 
 Cold-start 편차가 큽니다 — M-series 7초, 오래된 Intel 30초+. 고정 예상 시간은 어느 쪽에서든 거짓말이므로 제거했습니다.
 
@@ -293,13 +356,19 @@ Cold-start 편차가 큽니다 — M-series 7초, 오래된 Intel 30초+. 고정
 
 스피너 = "살아있음" 신호, 텍스트 = "현재 상태" 신호. 둘을 섞지 않습니다.
 
-### 상주 0 정책
+### 상주 0 정책 <sub>· 2026-04-24</sub>
 
 Plug 또는 `gamer.exe` 종료 시 `baram-exit-watcher.sh`가 wine 트리 전체를 teardown합니다. 백그라운드 상주 없음 — 매 실행이 cold-start. 의도적 선택입니다. 상주 프로세스는 macOS의 "앱은 명시적으로 연다/닫는다" 멘탈 모델과 충돌하고, 넥슨 서버 측 세션 추적을 혼란시킬 수 있습니다.
 
-### Router가 `.app`인 이유
+### Router가 `.app`인 이유 <sub>· 2026-04-22</sub>
 
 macOS LaunchServices는 `nexonplug://` / `ngm://` 같은 URL scheme을 오직 `.app` bundle에만 바인딩합니다. CLI 바이너리로는 브라우저 경로를 가로챌 수 없습니다. AppleScript applet은 `osacompile`로 빌드 가능해 Swift 툴체인 없이도 URL handler를 만들 수 있어 채택했습니다.
+
+### gulim.ttc 동봉 결정 <sub>· 2026-05-09</sub>
+
+당초 MS EULA를 이유로 repo에서 제외했지만, "다른 본인 Mac에서 한 줄 부트스트랩" 요구를 만족시키려면 어딘가에 폰트가 있어야 했습니다. 옵션 비교 결과: GitHub Release 자산은 어차피 누구나 받을 수 있고, 별도 private repo는 부트스트랩 복잡도를 높이고, DMG에만 두는 건 git clone 경로를 막습니다. 단순함을 택해 `fonts/gulim.ttc`로 commit. takedown 시 `.gitignore` 한 줄 되돌리고 별도 자산 채널로 전환할 수 있게 격리 유지.
+
+---
 
 ## Compatibility
 
@@ -315,40 +384,58 @@ macOS LaunchServices는 `nexonplug://` / `ngm://` 같은 URL scheme을 오직 `.
 
 **구조 재사용률 ~30%, 게임별 실측 ~70%**. Plug / wine / router 레이어는 공통이지만 각 게임의 anti-cheat, 패처, 실행 파라미터 패턴은 독립 실험이 필요합니다. v0.2+에서 `scripts/presets/` 디렉토리로 게임별 설정 분리 예정. 실측 결과 공유는 [Issues](https://github.com/dgv7/nx-mac/issues) 환영.
 
+---
+
 ## Trade-offs
 
 의식적으로 내린 선택과 받아들인 한계:
 
-- **gulim.ttc 자가 배치**: MS 저작권. 대체 폰트로는 UI 렌더링이 어색해짐.
-- **"실행 실패" 팝업**: Plug의 false alarm. `확인` 클릭 후 게임 정상 진행. 자동 dismiss는 OTP/공지 오탐 위험으로 포기.
-- **NGS 룰 변경 리스크**: 2026-04 기준 검증. Nexon이 anti-cheat 규칙을 강화하면 예고 없이 차단될 수 있음.
-- **Sikarugir Creator Refresh 시 설정 소실**: 빌더가 idempotent 설계이므로 재실행으로 복구.
-- **x86_64 Wine 엔진**: Apple Game Porting Toolkit 기반 ARM 네이티브 경로는 Chromium-in-Plug 호환성이 CX24보다 약함. Plan B에서 재평가.
+- **`fonts/gulim.ttc` 동봉** — MS EULA 회색지대지만 부트스트랩 단순함을 우선. 문제 시 격리 유지된 채로 제거 가능.
+- **"실행 실패" 팝업** — Plug의 false alarm. `확인` 클릭 후 게임 정상 진행. 자동 dismiss는 OTP/공지 오탐 위험으로 포기.
+- **NGS 룰 변경 리스크** — 2026-04 기준 검증. Nexon이 anti-cheat 규칙을 강화하면 예고 없이 차단될 수 있음.
+- **Sikarugir Creator Refresh 시 설정 소실** — 빌더가 idempotent 설계이므로 재실행으로 복구.
+- **x86_64 Wine 엔진** — Apple Game Porting Toolkit 기반 ARM 네이티브 경로는 Chromium-in-Plug 호환성이 CX24보다 약함. Plan B에서 재평가.
+
+---
 
 ## Project layout
 
-```
+```text
 nx-mac/
 ├── install.sh                    # 원라이너 installer
+├── fonts/
+│   └── gulim.ttc                 # MS 한글 폰트 (build-baram-app.sh가 자동 적용)
 ├── scripts/
 │   ├── build-baram-app.sh        # 빈 wrapper → 완성 상태 자동 변환
+│   ├── build-personal-dmg.sh     # 개인용 DMG 빌더 (게임 데이터 제외)
 │   ├── baram-router.applescript  # URL handler + splash 스폰
 │   ├── baram-exit-watcher.sh     # 상주 금지 watcher
 │   └── nx-splash/
 │       ├── NXSplash.swift        # SwiftUI borderless splash
 │       └── build-splash.sh       # universal binary 빌드
+├── CLAUDE.md                     # 프로젝트 성격·정책
 ├── ROADMAP.md                    # Plan A / B / C 전략
 ├── STATUS.md                     # 누적 진행 상황
 └── SMOKE_TEST.md                 # 스모크 체크리스트
 ```
 
+---
+
 ## References
 
-- [Sikarugir](https://github.com/Sikarugir-App/Sikarugir) · [Creator](https://github.com/Sikarugir-App/Creator)
+- [Sikarugir](https://github.com/Sikarugir-App/Sikarugir) · [Creator](https://github.com/Sikarugir-App/Creator) · [Engines](https://github.com/Sikarugir-App/Engines)
 - [Apple Game Porting Toolkit 2.1](https://developer.apple.com/games/game-porting-toolkit/)
 - [넥슨플러그](https://nexonplug.nexon.com/)
 - [nProtect GameGuard](https://gameguard.nprotect.com/kr/index.html)
 
+---
+
 ## License
 
 MIT — 스크립트 · AppleScript · Swift · 문서. 게임 바이너리, 폰트, Wine 엔진, Sikarugir는 각 저작권자 소유.
+
+<br>
+
+<div align="center">
+<sub>made for personal play · open-sourced in case it helps someone else</sub>
+</div>
